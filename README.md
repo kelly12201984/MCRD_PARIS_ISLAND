@@ -45,6 +45,7 @@ Never touched Roblox before? → **[docs/GETTING_STARTED.md](docs/GETTING_STARTE
 | [GETTING_STARTED.md](docs/GETTING_STARTED.md) | Toolchain setup, the Roblox mental model, first change |
 | [DESIGN.md](docs/DESIGN.md) | What "realistic" should mean, and the roadmap through graduation |
 | [QUESTIONS_FOR_YOUR_RECRUIT.md](docs/QUESTIONS_FOR_YOUR_RECRUIT.md) | Structured questions to pin down the design with your son |
+| [SETUP.md](SETUP.md) | Alternate no-CLI setup (VS Code Rojo extension) and exporting place snapshots for Claude |
 | [CLAUDE.md](CLAUDE.md) | Architecture and conventions |
 
 ## Layout

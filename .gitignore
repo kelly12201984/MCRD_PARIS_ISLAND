@@ -28,3 +28,6 @@ Thumbs.db
 # Scratch
 scratch/
 *.log
+
+# Exception: place snapshots exported from Studio so Claude can read them
+!place/*.rbxlx
