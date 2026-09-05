@@ -1,19 +1,22 @@
 {
-  "name": "MCRD-Parris-Island",
+  "name": "MCRD_PARIS_ISLAND",
   "tree": {
     "$className": "DataModel",
-    "ServerScriptService": {
-      "$className": "ServerScriptService",
-      "Server": {
-        "$path": "src/server"
-      }
-    },
+
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
       "Shared": {
         "$path": "src/shared"
       }
     },
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "Server": {
+        "$path": "src/server"
+      }
+    },
+
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "StarterPlayerScripts": {
@@ -21,6 +24,31 @@
         "Client": {
           "$path": "src/client"
         }
+      }
+    },
+
+    "Workspace": {
+      "$className": "Workspace",
+      "$properties": {
+        "FilteringEnabled": true
+      }
+    },
+
+    "Lighting": {
+      "$className": "Lighting",
+      "$properties": {
+        "Ambient": [0.29, 0.29, 0.33],
+        "Brightness": 2.5,
+        "ClockTime": 5.25,
+        "GeographicLatitude": 32.3,
+        "OutdoorAmbient": [0.42, 0.42, 0.47]
+      }
+    },
+
+    "SoundService": {
+      "$className": "SoundService",
+      "$properties": {
+        "RespectFilteringEnabled": true
       }
     }
   }

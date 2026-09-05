@@ -1,9 +1,33 @@
-# Rojo / Roblox local artifacts
-sourcemap.json
+# Rojo / build output
 *.rbxl
 *.rbxlx
+*.rbxm
+*.rbxmx
 *.rbxl.lock
 *.rbxlx.lock
+
+# Toolchain
+.rokit/
+~/.aftman
+
+# Package managers
+Packages/
+DevPackages/
+ServerPackages/
+wally.lock
+
+# Editor
+.vscode/
+.idea/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Scratch
+scratch/
+*.log
 
 # Exception: place snapshots exported from Studio so Claude can read them
 !place/*.rbxlx
