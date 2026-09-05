@@ -4,3 +4,6 @@ sourcemap.json
 *.rbxlx
 *.rbxl.lock
 *.rbxlx.lock
+
+# Exception: place snapshots exported from Studio so Claude can read them
+!place/*.rbxlx
