@@ -39,7 +39,7 @@
       "$properties": {
         "Ambient": [0.29, 0.29, 0.33],
         "Brightness": 2.5,
-        "ClockTime": 5.25,
+        "ClockTime": 14,
         "GeographicLatitude": 32.3,
         "OutdoorAmbient": [0.42, 0.42, 0.47]
       }

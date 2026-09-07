@@ -157,14 +157,28 @@ local function runCommand()
 	end
 end
 
-local function fallInPhase()
-	broadcastPhase("FallIn", Config.Drill.FallInSeconds, "GET ON MY YELLOW FOOTPRINTS!")
+local function claimPads()
+	for _, player in Players:GetPlayers() do
+		FormationService.tryClaimPad(player)
+	end
+end
 
+local function fallInPhase()
+	FormationService.setBeacon(true)
+
+	-- No clock yet: the DI has nobody to yell at until the first recruit
+	-- reaches the deck. New players get to find the footprints in peace.
+	broadcastPhase("FallIn", nil, "GET ON MY YELLOW FOOTPRINTS!")
+	while FormationService.occupiedCount() == 0 do
+		claimPads()
+		task.wait(0.25)
+	end
+
+	-- Someone is on the deck. From here on, the DI waits for no one.
+	broadcastPhase("FallIn", Config.Drill.FallInSeconds, "MOVE! MOVE! MOVE!")
 	local deadline = os.clock() + Config.Drill.FallInSeconds
 	while os.clock() < deadline do
-		for _, player in Players:GetPlayers() do
-			FormationService.tryClaimPad(player)
-		end
+		claimPads()
 
 		-- Everyone present has a set of footprints; no reason to keep waiting.
 		if
@@ -177,6 +191,8 @@ local function fallInPhase()
 
 		task.wait(0.25)
 	end
+
+	FormationService.setBeacon(false)
 
 	-- Square everyone away facing north before the first command.
 	for _, player in Players:GetPlayers() do
