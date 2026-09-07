@@ -88,19 +88,21 @@ Config.Progression = {
 }
 
 Config.Overhead = {
-	-- Rank and insignia come from ProgressionService (see RankCatalog for the
-	-- ladder). Division is the player's Team; this shows when there is none.
-	NoDivision = "Unassigned",
-
-	-- Layout. Sizes are in pixels; HeightAboveHead is in studs.
-	Width = 260,
-	Height = 110,
-	HeightAboveHead = 2.6,
+	-- The tag is sized in studs so it scales with the world like the avatar
+	-- does. (Pixel sizing stays the same size on screen and looks enormous
+	-- from a distance.)
+	WidthStuds = 7,
+	HeightStuds = 2.8,
+	-- Where the center of the tag sits above the head, in studs.
+	HeightAboveHead = 2.4,
+	-- Studs beyond which the tag is not drawn at all.
 	MaxDistance = 120,
-	InsigniaSize = 28,
-	NameTextSize = 22,
-	TextSize = 16,
-	LinePadding = 1,
+
+	-- Share of the tag's height each line gets. Text scales to fit.
+	InsigniaFraction = 0.30,
+	NameFraction = 0.26,
+	RankFraction = 0.20,
+	DivisionFraction = 0.20,
 
 	Font = Enum.Font.GothamBold,
 	NameColor = Color3.fromRGB(255, 221, 82),

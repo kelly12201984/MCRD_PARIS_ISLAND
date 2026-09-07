@@ -16,13 +16,15 @@ require(ReplicatedStorage:WaitForChild("Shared").Remotes)
 
 local FormationService = require(script.FormationService)
 local RecruitService = require(script.RecruitService)
+local DivisionService = require(script.DivisionService)
 local ProgressionService = require(script.ProgressionService)
 local OverheadService = require(script.OverheadService)
 local DrillService = require(script.DrillService)
 
 FormationService.init()
 RecruitService.init()
--- Progression must be listening before Overhead asks it for ranks.
+-- Division and Progression must be listening before Overhead asks them.
+DivisionService.init()
 ProgressionService.init()
 OverheadService.init()
 DrillService.start()
