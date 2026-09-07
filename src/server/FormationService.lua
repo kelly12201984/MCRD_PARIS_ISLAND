@@ -9,6 +9,10 @@
 	that git cannot merge. When you and your son start doing real art passes,
 	you will swap this for real models -- but by then the gameplay will already
 	be proven.
+
+	Placement: drop a Part named Config.Formation.MarkerName in the Workspace
+	and the whole deck centers on it and faces the way its front faces. No
+	marker, and it falls back to Config.Formation.Origin facing -Z.
 ]]
 
 local Players = game:GetService("Players")
@@ -30,10 +34,18 @@ local deckFolder: Folder?
 local busDrop: SpawnLocation?
 local beacon: BillboardGui?
 
--- Where the formation is actually centered, after snapping to the ground.
-local origin: Vector3 = Config.Formation.Origin
+-- Where the formation is centered and which way "north" (facing 0) points.
+-- Position and yaw only; never pitched or rolled.
+local originCFrame: CFrame = CFrame.new(Config.Formation.Origin)
 
-local function padPosition(index: number): Vector3
+-- Strips pitch and roll so a carelessly tilted marker cannot tilt the deck.
+local function yawOnly(cf: CFrame): CFrame
+	local look = cf.LookVector
+	local yaw = math.atan2(-look.X, -look.Z)
+	return CFrame.new(cf.Position) * CFrame.Angles(0, yaw, 0)
+end
+
+local function padCFrame(index: number): CFrame
 	local cfg = Config.Formation
 	local row = math.floor((index - 1) / cfg.Columns)
 	local column = (index - 1) % cfg.Columns
@@ -42,7 +54,11 @@ local function padPosition(index: number): Vector3
 	local offsetX = (column - (cfg.Columns - 1) / 2) * cfg.SpacingX
 	local offsetZ = (row - (cfg.Rows - 1) / 2) * cfg.SpacingZ
 
-	return origin + Vector3.new(offsetX, 0, offsetZ)
+	return originCFrame * CFrame.new(offsetX, 0, offsetZ)
+end
+
+local function padPosition(index: number): Vector3
+	return padCFrame(index).Position
 end
 
 function FormationService.padCount(): number
@@ -55,33 +71,54 @@ end
 
 --[[
 	Converts a facing index (0 = north, 1 = east, 2 = south, 3 = west) into a
-	yaw in radians. Roblox's identity LookVector is -Z, and a rotation of theta
-	about Y gives LookVector (-sin theta, 0, -cos theta), so clockwise
-	quarter-turns are negative.
+	yaw in radians relative to the formation's own north. Roblox's identity
+	LookVector is -Z, and a rotation of theta about Y gives LookVector
+	(-sin theta, 0, -cos theta), so clockwise quarter-turns are negative.
 ]]
 function FormationService.facingToYaw(facing: number): number
 	return math.rad(-90 * (facing % 4))
 end
 
 --[[
-	Drops a ray from above the configured origin and rests the formation on
-	whatever ground it finds, so the pads sit flush on real pavement without
-	anyone having to measure the Y coordinate.
+	Finds the marker part if there is one, then drops a ray from above it and
+	rests the formation on whatever ground it finds, so the pads sit flush on
+	real pavement without anyone measuring a Y coordinate.
 ]]
-local function snapOriginToGround()
+local function locateOrigin()
 	local cfg = Config.Formation
-	if not cfg.SnapToGround then
-		return
+	local base = CFrame.new(cfg.Origin)
+	local exclude: { Instance } = {}
+
+	local marker = Workspace:FindFirstChild(cfg.MarkerName, true)
+	if marker and marker:IsA("BasePart") then
+		base = yawOnly(marker.CFrame)
+		-- The marker is a Studio-only handle; players never see or touch it.
+		marker.Transparency = 1
+		marker.CanCollide = false
+		marker.CanQuery = false
+		marker.CanTouch = false
+		table.insert(exclude, marker)
+	else
+		warn(("[Formation] No part named %q found; using Config.Formation.Origin."):format(cfg.MarkerName))
 	end
 
-	local from = cfg.Origin + Vector3.new(0, cfg.GroundProbeHeight, 0)
-	local direction = Vector3.new(0, -cfg.GroundProbeHeight * 2, 0)
-	local result = Workspace:Raycast(from, direction)
-	if result then
-		origin = Vector3.new(cfg.Origin.X, result.Position.Y + cfg.PadSize.Y / 2, cfg.Origin.Z)
-	else
-		warn("[Formation] No ground found under Config.Formation.Origin; using it as-is.")
+	if cfg.SnapToGround then
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = exclude
+
+		local from = base.Position + Vector3.new(0, cfg.GroundProbeHeight, 0)
+		local direction = Vector3.new(0, -cfg.GroundProbeHeight * 2, 0)
+		local result = Workspace:Raycast(from, direction, params)
+		if result then
+			local grounded = Vector3.new(base.Position.X, result.Position.Y + cfg.PadSize.Y / 2, base.Position.Z)
+			base = CFrame.new(grounded) * base.Rotation
+		else
+			warn("[Formation] No ground found under the formation origin; using it as-is.")
+		end
 	end
+
+	originCFrame = base
 end
 
 local function buildBeacon(parent: Folder)
@@ -95,7 +132,7 @@ local function buildBeacon(parent: Folder)
 	anchor.CanTouch = false
 	anchor.Transparency = 1
 	anchor.Size = Vector3.new(1, 1, 1)
-	anchor.Position = origin + Vector3.new(0, cfg.BeaconHeight, 0)
+	anchor.Position = originCFrame.Position + Vector3.new(0, cfg.BeaconHeight, 0)
 	anchor.Parent = parent
 
 	local gui = Instance.new("BillboardGui")
@@ -133,7 +170,7 @@ local function buildDeck()
 		deck.Name = "Deck"
 		deck.Anchored = true
 		deck.Size = Vector3.new(width, 1, depth)
-		deck.Position = origin - Vector3.new(0, 0.6, 0)
+		deck.CFrame = originCFrame * CFrame.new(0, -0.6, 0)
 		deck.Material = Enum.Material.Concrete
 		deck.Color = Color3.fromRGB(103, 105, 104)
 		deck.TopSurface = Enum.SurfaceType.Smooth
@@ -146,7 +183,7 @@ local function buildDeck()
 		pad.Anchored = true
 		pad.CanCollide = false
 		pad.Size = cfg.PadSize
-		pad.Position = padPosition(index)
+		pad.CFrame = padCFrame(index)
 		pad.Material = Enum.Material.SmoothPlastic
 		pad.Color = cfg.PadColor
 		pad.TopSurface = Enum.SurfaceType.Smooth
@@ -163,7 +200,7 @@ local function buildDeck()
 	spawn.Anchored = true
 	spawn.CanCollide = false
 	spawn.Size = Vector3.new(12, cfg.PadSize.Y, 6)
-	spawn.Position = origin + Vector3.new(0, 0, depth / 2 - 6)
+	spawn.CFrame = originCFrame * CFrame.new(0, 0, depth / 2 - 6)
 	spawn.Material = Enum.Material.Concrete
 	spawn.Color = Color3.fromRGB(60, 62, 61)
 	spawn.Neutral = true
@@ -189,7 +226,7 @@ function FormationService.init()
 	if deckFolder then
 		return
 	end
-	snapOriginToGround()
+	locateOrigin()
 	buildDeck()
 
 	for _, player in Players:GetPlayers() do
@@ -288,8 +325,9 @@ function FormationService.isHoldingPad(player: Player): boolean
 end
 
 --[[
-	Snaps a recruit to face a given cardinal direction on their pad. This is the
-	visible result of a correctly executed facing movement.
+	Snaps a recruit to face a given cardinal direction on their pad, relative
+	to the formation's own north. This is the visible result of a correctly
+	executed facing movement.
 ]]
 function FormationService.orientOnPad(player: Player, facing: number)
 	local index = playerPad[player]
@@ -304,7 +342,7 @@ function FormationService.orientOnPad(player: Player, facing: number)
 
 	local position = padPosition(index) + Vector3.new(0, 3, 0)
 	local yaw = FormationService.facingToYaw(facing)
-	character:PivotTo(CFrame.new(position) * CFrame.Angles(0, yaw, 0))
+	character:PivotTo(CFrame.new(position) * originCFrame.Rotation * CFrame.Angles(0, yaw, 0))
 end
 
 function FormationService.occupiedCount(): number

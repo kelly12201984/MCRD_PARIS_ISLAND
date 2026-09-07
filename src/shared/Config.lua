@@ -11,10 +11,13 @@
 local Config = {}
 
 Config.Formation = {
-	-- Where the receiving deck sits in the world: the pavement in front of the
-	-- Receiving Building. Y is only a starting guess when SnapToGround is on.
+	-- Easiest way to place the deck: put a Part named this anywhere in the
+	-- Workspace, move and rotate it in Studio, done. The formation centers on
+	-- it and recruits face the way its front face points.
+	MarkerName = "FormationOrigin",
+	-- Used only when no marker part exists.
 	Origin = Vector3.new(-3008, 6, -277),
-	-- Raycast down from above Origin and put the pads on whatever it hits.
+	-- Raycast down from above the origin and put the pads on whatever it hits.
 	SnapToGround = true,
 	GroundProbeHeight = 50,
 	-- Generate a concrete slab under the pads. Useful on an empty baseplate,
