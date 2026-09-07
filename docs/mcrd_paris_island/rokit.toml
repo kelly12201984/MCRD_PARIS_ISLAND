@@ -1,0 +1,10 @@
+# Rokit pins the exact tool versions everyone on this project uses.
+# Install Rokit once (https://github.com/rojo-rbx/rokit), then run `rokit install`
+# in this folder and you have the same toolchain as everybody else.
+#
+# If you already use Aftman instead, the same [tools] block works in aftman.toml.
+
+[tools]
+rojo = "rojo-rbx/rojo@7.4.4"
+stylua = "JohnnyMorganz/StyLua@0.20.0"
+selene = "Kampfkarren/selene@0.27.1"
