@@ -87,6 +87,13 @@ Config.Progression = {
 	AutosaveSeconds = 120,
 }
 
+Config.Division = {
+	-- Every player lands here on join until the game moves them. The team is
+	-- created if the place does not already have one by this name.
+	DefaultTeam = "Recruit Training",
+	DefaultColor = BrickColor.new("Bright yellow"),
+}
+
 Config.Overhead = {
 	-- Rank and insignia come from ProgressionService (see RankCatalog for the
 	-- ladder). Division is the player's Team; this shows when there is none.
