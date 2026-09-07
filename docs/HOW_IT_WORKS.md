@@ -31,7 +31,7 @@ Properties panel, scroll to **Tags**, click **+**, type the tag name.
 
 | Tag | Put it on | What happens |
 |---|---|---|
-| `FormationSpot` | Each painted formation box (the part, or the model if a box is a model) | Becomes a claimable spot. Claimed spots glow yellow. |
+| `FormationSpot` | Each painted formation box (the part, or the model if a box is a model) | Holds `RecruitsPerPad` standing spots (see `Config.Formation`), laid out inside the box front rank first. Each spot shows a flat yellow marker: translucent when free, solid when claimed. |
 | `FormationFront` | The part/model where the DI stands | Recruits face it at "attention". Optional; without it each box's own front is used. |
 | `BusStop` | The bus stop | Recruits (players with a division) spawn here. |
 | `TownSpawn` | Any part in town | Everyone without a division spawns here. |
