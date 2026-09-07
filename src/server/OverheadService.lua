@@ -13,8 +13,13 @@
 	  - Division: the player's Team. A recruit has none until the game assigns
 	    one, and the line is hidden until then.
 
-	The server builds the GUI inside the character model, so it replicates to
-	every client without any client code.
+	The server builds the GUI inside the character's Head, so it replicates to
+	every client without any client code. It is parented to the Head rather
+	than adorned to it from elsewhere: an Adornee reference can fail to resolve
+	on the client while the character is still replicating, and a BillboardGui
+	whose Adornee is missing falls back to its parent -- for a character Model
+	that is the HumanoidRootPart, which puts the tag at chest height behind the
+	hair. Parenting to the Head leaves nothing to resolve.
 ]]
 
 local Players = game:GetService("Players")
@@ -61,9 +66,13 @@ local function build(player: Player, character: Model)
 		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	end
 
-	local existing = character:FindFirstChild(GUI_NAME)
-	if existing then
-		existing:Destroy()
+	-- Rebuilds replace the previous tag. Older builds parented it to the
+	-- character, so look in both places.
+	for _, holder in { head, character } do
+		local existing = holder:FindFirstChild(GUI_NAME)
+		if existing then
+			existing:Destroy()
+		end
 	end
 
 	local cfg = Config.Overhead
@@ -73,9 +82,9 @@ local function build(player: Player, character: Model)
 
 	local gui = Instance.new("BillboardGui")
 	gui.Name = GUI_NAME
-	gui.Adornee = head
 	gui.Size = UDim2.new(cfg.WidthStuds, 0, cfg.HeightStuds, 0)
-	gui.StudsOffset = Vector3.new(0, cfg.StudsAboveHead, 0)
+	-- World-space so the tag stays put when the head tilts to look around.
+	gui.StudsOffsetWorldSpace = Vector3.new(0, cfg.StudsAboveHead, 0)
 	gui.MaxDistance = cfg.MaxDistance
 	gui.ResetOnSpawn = false
 
@@ -107,7 +116,7 @@ local function build(player: Player, character: Model)
 	division.Visible = team ~= nil
 	division.Parent = gui
 
-	gui.Parent = character
+	gui.Parent = head
 end
 
 local function refresh(player: Player)
