@@ -3,6 +3,10 @@
 	Overhead nametag: rank insignia, username, rank, division -- stacked above
 	the head, built in code so it can be diffed and tuned from Config.
 
+	Geometry is a copy of the RankUI template the game used before (4 x 3
+	studs, centered 1.6 studs above the head, content in fixed vertical bands),
+	because that one sat where a nametag should.
+
 	Where the data comes from:
 	  - Rank + insignia: ProgressionService, so it is earned by training and
 	    persists. The tag rebuilds the moment a player is promoted.
@@ -26,22 +30,22 @@ local OverheadService = {}
 
 local GUI_NAME = "Overhead"
 local HEAD_WAIT_SECONDS = 10
--- Half the height of a standard R15 head, so ClearanceStuds measures from its top.
-local HEAD_HALF_HEIGHT = 0.6
 
-local function makeLabel(name: string, text: string, color: Color3, heightFraction: number, order: number): TextLabel
+type Band = { Top: number, Height: number }
+
+local function makeLabel(name: string, text: string, color: Color3, band: Band): TextLabel
 	local cfg = Config.Overhead
 	local label = Instance.new("TextLabel")
 	label.Name = name
 	label.BackgroundTransparency = 1
-	label.Size = UDim2.new(1, 0, heightFraction, 0)
+	label.Position = UDim2.fromScale(0, band.Top)
+	label.Size = UDim2.fromScale(1, band.Height)
 	label.Font = cfg.Font
 	label.TextScaled = true
 	label.TextColor3 = color
 	label.TextStrokeColor3 = cfg.StrokeColor
 	label.TextStrokeTransparency = cfg.StrokeTransparency
 	label.Text = text
-	label.LayoutOrder = order
 	return label
 end
 
@@ -63,6 +67,7 @@ local function build(player: Player, character: Model)
 	end
 
 	local cfg = Config.Overhead
+	local bands = cfg.Bands
 	local rank = ProgressionService.getRank(player)
 	local team = player.Team
 
@@ -70,41 +75,34 @@ local function build(player: Player, character: Model)
 	gui.Name = GUI_NAME
 	gui.Adornee = head
 	gui.Size = UDim2.new(cfg.WidthStuds, 0, cfg.HeightStuds, 0)
-	-- The offset positions the tag's center, so lift it by half its own height
-	-- plus the clearance to keep the bottom edge above the head.
-	gui.StudsOffset = Vector3.new(0, HEAD_HALF_HEIGHT + cfg.ClearanceStuds + cfg.HeightStuds / 2, 0)
+	gui.StudsOffset = Vector3.new(0, cfg.StudsAboveHead, 0)
 	gui.MaxDistance = cfg.MaxDistance
 	gui.ResetOnSpawn = false
 
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Vertical
-	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = gui
-
+	-- Insignia: a square centered in its band.
+	local insigniaBand: Band = bands.Insignia
 	local insignia = Instance.new("ImageLabel")
 	insignia.Name = "Insignia"
 	insignia.BackgroundTransparency = 1
-	insignia.Size = UDim2.new(0, 0, cfg.InsigniaFraction, 0)
+	insignia.AnchorPoint = Vector2.new(0.5, 0)
+	insignia.Position = UDim2.fromScale(0.5, insigniaBand.Top)
+	insignia.Size = UDim2.fromScale(0, insigniaBand.Height)
 	insignia.Image = rank.insignia
 	insignia.Visible = rank.insignia ~= ""
-	insignia.LayoutOrder = 1
 	local square = Instance.new("UIAspectRatioConstraint")
 	square.AspectRatio = 1
 	square.DominantAxis = Enum.DominantAxis.Height
 	square.Parent = insignia
 	insignia.Parent = gui
 
-	makeLabel("Username", player.Name, cfg.NameColor, cfg.NameFraction, 2).Parent = gui
-	makeLabel("Rank", RankCatalog.displayName(rank), cfg.TextColor, cfg.RankFraction, 3).Parent = gui
+	makeLabel("Username", player.Name, cfg.NameColor, bands.Name).Parent = gui
+	makeLabel("Rank", RankCatalog.displayName(rank), cfg.TextColor, bands.Rank).Parent = gui
 
 	local division = makeLabel(
 		"Division",
 		if team then team.Name else "",
 		if team then team.TeamColor.Color else cfg.TextColor,
-		cfg.DivisionFraction,
-		4
+		bands.Division
 	)
 	division.Visible = team ~= nil
 	division.Parent = gui

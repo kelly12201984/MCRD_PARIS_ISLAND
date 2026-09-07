@@ -108,21 +108,24 @@ Config.Progression = {
 }
 
 Config.Overhead = {
-	-- The tag is sized in studs so it scales with the world like the avatar
-	-- does. (Pixel sizing stays the same size on screen and looks enormous
-	-- from a distance.)
-	WidthStuds = 4.5,
-	HeightStuds = 1.8,
-	-- Gap between the top of the head and the bottom edge of the tag, in studs.
-	ClearanceStuds = 0.9,
+	-- Geometry copied from the overhead the game used before: a 4 x 3 stud
+	-- billboard whose center sits 1.6 studs above the head, with the content
+	-- in the top 70% and the bottom left empty as breathing room.
+	WidthStuds = 4,
+	HeightStuds = 3,
+	StudsAboveHead = 1.6,
 	-- Studs beyond which the tag is not drawn at all.
 	MaxDistance = 120,
 
-	-- Share of the tag's height each line gets. Text scales to fit.
-	InsigniaFraction = 0.30,
-	NameFraction = 0.26,
-	RankFraction = 0.20,
-	DivisionFraction = 0.20,
+	-- Each line's vertical band: top edge and height, as fractions of the
+	-- billboard height, measured from the top. Fixed bands, so nothing shifts
+	-- when a line is hidden. Text scales to fit its band.
+	Bands = {
+		Insignia = { Top = 0.0, Height = 0.2 },
+		Name = { Top = 0.17, Height = 0.2 },
+		Rank = { Top = 0.36, Height = 0.17 },
+		Division = { Top = 0.53, Height = 0.17 },
+	},
 
 	Font = Enum.Font.GothamBold,
 	NameColor = Color3.fromRGB(255, 221, 82),
