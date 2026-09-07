@@ -11,38 +11,55 @@
 local Config = {}
 
 Config.Formation = {
-	-- Where the receiving deck sits in the world: the pavement in front of the
-	-- Receiving Building. Y is only a starting guess when SnapToGround is on.
+	-- The real map: tag each painted formation box in Studio (Properties ->
+	-- Tags) with SpotTag and the code uses those. Tag the thing the DI stands
+	-- on/at with FrontTag and recruits face it.
+	SpotTag = "FormationSpot",
+	FrontTag = "FormationFront",
+	-- Spots this close (in studs) to the front count as the same rank, for
+	-- numbering them front-to-back, left-to-right.
+	RowBucketStuds = 4,
+
+	-- Fallback when nothing is tagged: generate a yellow grid so the game still
+	-- runs on an empty baseplate. Placed at a Part named MarkerName, else Origin.
+	GenerateIfNoSpots = true,
+	MarkerName = "FormationOrigin",
 	Origin = Vector3.new(-3008, 6, -277),
-	-- Raycast down from above Origin and put the pads on whatever it hits.
 	SnapToGround = true,
 	GroundProbeHeight = 50,
-	-- Generate a concrete slab under the pads. Useful on an empty baseplate,
-	-- ugly on real pavement.
 	BuildDeck = false,
-
-	-- The famous yellow footprints: 4 rows of 5, heels together, 45 degrees out.
 	Rows = 4,
 	Columns = 5,
 	SpacingX = 6,
 	SpacingZ = 8,
-
 	PadSize = Vector3.new(3, 0.2, 3),
 	PadColor = Color3.fromRGB(255, 204, 0),
 
-	-- How close a recruit must be to a pad to claim it.
+	-- How the claimed spot is shown (a Highlight, so nothing is recolored).
+	ClaimFillTransparency = 0.6,
+
+	-- How close (horizontally) a recruit must be to a spot to claim it.
 	ClaimRadius = 4,
-
-	-- How far a recruit may drift off their pad mid-drill before the DI notices.
+	-- How far a recruit may drift off their spot mid-drill before the DI notices.
 	DriftTolerance = 5.5,
+	-- Studs above the spot's surface to place the character root when snapping.
+	StandHeight = 3,
 
-	-- The marker that floats over the deck during fall-in so nobody has to
-	-- hunt for the footprints. Sized in pixels so it reads from any distance.
+	-- The marker that floats over the formation during fall-in so nobody has
+	-- to hunt for it. Sized in pixels so it reads from any distance.
 	BeaconText = "FALL IN HERE",
 	BeaconHeight = 14,
 	BeaconWidthPx = 300,
 	BeaconHeightPx = 70,
 	BeaconMaxDistance = 3000,
+}
+
+Config.Spawn = {
+	-- Tag the bus stop and a spot in town (Properties -> Tags). Recruits --
+	-- players who hold a division -- spawn at the bus stop; everyone else
+	-- spawns in town.
+	BusStopTag = "BusStop",
+	TownSpawnTag = "TownSpawn",
 }
 
 Config.Drill = {
@@ -105,21 +122,24 @@ Config.Progression = {
 }
 
 Config.Overhead = {
-	-- The tag is sized in studs so it scales with the world like the avatar
-	-- does. (Pixel sizing stays the same size on screen and looks enormous
-	-- from a distance.)
-	WidthStuds = 4.5,
-	HeightStuds = 1.8,
-	-- Gap between the top of the head and the bottom edge of the tag, in studs.
-	ClearanceStuds = 0.9,
+	-- Geometry copied from the overhead the game used before: a 4 x 3 stud
+	-- billboard whose center sits 1.6 studs above the head, with the content
+	-- in the top 70% and the bottom left empty as breathing room.
+	WidthStuds = 4,
+	HeightStuds = 3,
+	StudsAboveHead = 1.6,
 	-- Studs beyond which the tag is not drawn at all.
 	MaxDistance = 120,
 
-	-- Share of the tag's height each line gets. Text scales to fit.
-	InsigniaFraction = 0.30,
-	NameFraction = 0.26,
-	RankFraction = 0.20,
-	DivisionFraction = 0.20,
+	-- Each line's vertical band: top edge and height, as fractions of the
+	-- billboard height, measured from the top. Fixed bands, so nothing shifts
+	-- when a line is hidden. Text scales to fit its band.
+	Bands = {
+		Insignia = { Top = 0.0, Height = 0.2 },
+		Name = { Top = 0.17, Height = 0.2 },
+		Rank = { Top = 0.36, Height = 0.17 },
+		Division = { Top = 0.53, Height = 0.17 },
+	},
 
 	Font = Enum.Font.GothamBold,
 	NameColor = Color3.fromRGB(255, 221, 82),

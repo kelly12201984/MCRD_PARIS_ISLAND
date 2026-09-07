@@ -15,6 +15,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 require(ReplicatedStorage:WaitForChild("Shared").Remotes)
 
 local FormationService = require(script.FormationService)
+local SpawnService = require(script.SpawnService)
 local RecruitService = require(script.RecruitService)
 local DivisionService = require(script.DivisionService)
 local ProgressionService = require(script.ProgressionService)
@@ -22,6 +23,8 @@ local OverheadService = require(script.OverheadService)
 local DrillService = require(script.DrillService)
 
 FormationService.init()
+-- Spawn reads the formation's fallback bus drop, so it goes second.
+SpawnService.init()
 RecruitService.init()
 -- Division and Progression must be listening before Overhead asks them.
 DivisionService.init()
