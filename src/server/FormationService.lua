@@ -6,6 +6,8 @@
 	  1. Anything in the Workspace tagged Config.Formation.SpotTag. This is the
 	     real map: the painted formation boxes on the parade deck. Tag them in
 	     Studio (Properties -> Tags) and the code finds them, parts or models.
+	     Each box holds Config.Formation.RecruitsPerPad standing spots, laid
+	     out inside it by layoutInPad.
 	  2. If nothing is tagged, a grid of yellow pads is generated at the
 	     FormationOrigin marker (or Config.Formation.Origin) so the game still
 	     runs on an empty baseplate.
@@ -28,7 +30,10 @@ type Spot = {
 	-- Where a recruit stands (top surface) and which way facing 0 looks.
 	cframe: CFrame,
 	instance: Instance,
+	-- Generated grid: the whole pad glows when claimed.
 	highlight: Highlight?,
+	-- Tagged pads: a flat marker per standing spot goes solid when claimed.
+	marker: BasePart?,
 }
 
 local spots: { Spot } = {}
@@ -91,6 +96,100 @@ local function addHighlight(spot: Spot, parent: Instance)
 	spot.highlight = highlight
 end
 
+local function addMarker(spot: Spot, parent: Instance)
+	local cfg = Config.Formation
+	local marker = Instance.new("Part")
+	marker.Name = "StandingSpot"
+	marker.Anchored = true
+	marker.CanCollide = false
+	marker.CanQuery = false
+	marker.CanTouch = false
+	marker.CastShadow = false
+	marker.Size = Vector3.new(cfg.SpotMarkerSize, cfg.SpotMarkerThickness, cfg.SpotMarkerSize)
+	marker.CFrame = spot.cframe * CFrame.new(0, cfg.SpotMarkerThickness / 2, 0)
+	marker.Material = Enum.Material.SmoothPlastic
+	marker.Color = cfg.PadColor
+	marker.Transparency = cfg.SpotMarkerFreeTransparency
+	marker.TopSurface = Enum.SurfaceType.Smooth
+	marker.Parent = parent
+	spot.marker = marker
+end
+
+--[[
+	Standing spots inside one tagged pad.
+
+	The pad is a painted box of any rotation. Its "front" is whichever side
+	faces the DI (frontPos), or its own front face when there is no DI marker.
+	Spots fill a grid that keeps cells roughly square, ordered front rank
+	first and then left to right as the recruit sees it, so spot 1 is the
+	front-left recruit.
+]]
+local function layoutInPad(padCFrame: CFrame, padSize: Vector3, frontPos: Vector3?): { CFrame }
+	local cfg = Config.Formation
+	local count = math.max(1, cfg.RecruitsPerPad)
+
+	local center = padCFrame.Position
+	local look = padCFrame.LookVector
+	local right = padCFrame.RightVector
+
+	-- Which of the pad's own axes runs toward the front?
+	local toFront = if frontPos then Vector3.new(frontPos.X - center.X, 0, frontPos.Z - center.Z) else look
+	local alongLook = toFront:Dot(look)
+	local alongRight = toFront:Dot(right)
+
+	local frontDir: Vector3
+	local deepSize: number
+	local acrossSize: number
+	if math.abs(alongLook) >= math.abs(alongRight) then
+		frontDir = if alongLook >= 0 then look else -look
+		deepSize, acrossSize = padSize.Z, padSize.X
+	else
+		frontDir = if alongRight >= 0 then right else -right
+		deepSize, acrossSize = padSize.X, padSize.Z
+	end
+	-- The recruit's right, standing on the pad and facing the front.
+	local acrossDir = frontDir:Cross(Vector3.yAxis)
+
+	local usableAcross = math.max(acrossSize - cfg.SpotInset * 2, 0)
+	local usableDeep = math.max(deepSize - cfg.SpotInset * 2, 0)
+
+	-- Choose the column count whose cells are closest to square, preferring
+	-- counts that fill every rank evenly: four recruits in a wide box stand
+	-- four abreast, not three and one.
+	local columns = count
+	local bestScore = math.huge
+	for candidate = 1, count do
+		local candidateRows = math.ceil(count / candidate)
+		local cellA = math.max(usableAcross / candidate, 0.01)
+		local cellD = math.max(usableDeep / candidateRows, 0.01)
+		local score = math.abs(math.log(cellA / cellD))
+		if count % candidate ~= 0 then
+			score += cfg.RaggedRankPenalty
+		end
+		if score < bestScore then
+			bestScore = score
+			columns = candidate
+		end
+	end
+	local rows = math.ceil(count / columns)
+	local cellAcross = usableAcross / columns
+	local cellDeep = usableDeep / rows
+
+	local out: { CFrame } = {}
+	for row = 0, rows - 1 do
+		-- A short last rank is centered rather than left-aligned.
+		local inRow = math.min(columns, count - row * columns)
+		local deepOffset = ((rows - 1) / 2 - row) * cellDeep
+		for column = 0, inRow - 1 do
+			local acrossOffset = (column - (inRow - 1) / 2) * cellAcross
+			local position = center + acrossDir * acrossOffset + frontDir * deepOffset
+			local standing = CFrame.lookAt(position, position + frontDir)
+			table.insert(out, faceToward(standing, frontPos))
+		end
+	end
+	return out
+end
+
 --[[
 	Builds the spot list from tagged instances. Returns false if there are none.
 	Spots are numbered front rank first (closest to the DI), then left to right,
@@ -114,7 +213,9 @@ local function collectTaggedSpots(folder: Folder): boolean
 			local cf, size = pivotOf(inst)
 			if cf and size then
 				local top = CFrame.new(cf.Position + Vector3.new(0, size.Y / 2, 0)) * yawOnly(cf).Rotation
-				table.insert(found, { cframe = faceToward(top, frontPos), instance = inst })
+				for _, standing in layoutInPad(top, size, frontPos) do
+					table.insert(found, { cframe = standing, instance = inst })
+				end
 			end
 		end
 	end
@@ -138,8 +239,10 @@ local function collectTaggedSpots(folder: Folder): boolean
 		return pa.Z < pb.Z
 	end)
 
-	for _, spot in found do
-		addHighlight(spot, folder)
+	if cfg.ShowSpotMarkers then
+		for _, spot in found do
+			addMarker(spot, folder)
+		end
 	end
 	spots = found
 	return true
@@ -338,8 +441,17 @@ end
 
 local function setPadHighlight(index: number, claimed: boolean)
 	local spot = spots[index]
-	if spot and spot.highlight then
+	if not spot then
+		return
+	end
+	if spot.highlight then
 		spot.highlight.Enabled = claimed
+	end
+	if spot.marker then
+		local cfg = Config.Formation
+		spot.marker.Transparency = if claimed
+			then cfg.SpotMarkerClaimedTransparency
+			else cfg.SpotMarkerFreeTransparency
 	end
 end
 

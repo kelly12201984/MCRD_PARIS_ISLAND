@@ -20,6 +20,24 @@ Config.Formation = {
 	-- numbering them front-to-back, left-to-right.
 	RowBucketStuds = 4,
 
+	-- Each tagged pad is a painted box that holds a small group. This many
+	-- standing spots are laid out inside every pad, front rank first, then
+	-- left to right as the recruit sees it. The box's "front" is whichever
+	-- side faces FrontTag, so it does not matter how the box was rotated.
+	RecruitsPerPad = 4,
+	-- Studs kept clear between the standing spots and the pad's edge.
+	SpotInset = 0.75,
+	-- How strongly the layout prefers full ranks over square spacing. Higher
+	-- means "never leave a short back rank" even in an awkwardly shaped box.
+	RaggedRankPenalty = 0.4,
+	-- A flat marker on the pad surface for each standing spot, so recruits can
+	-- see where to stand. Translucent when free, solid when claimed.
+	ShowSpotMarkers = true,
+	SpotMarkerSize = 2,
+	SpotMarkerThickness = 0.1,
+	SpotMarkerFreeTransparency = 0.6,
+	SpotMarkerClaimedTransparency = 0,
+
 	-- Fallback when nothing is tagged: generate a yellow grid so the game still
 	-- runs on an empty baseplate. Placed at a Part named MarkerName, else Origin.
 	GenerateIfNoSpots = true,
