@@ -21,13 +21,16 @@ stylua src             # format
 
 | Path | Becomes | Notes |
 |---|---|---|
-| `src/shared/` | `ReplicatedStorage.Shared` (Folder) | Config, Types, Remotes, CommandCatalog |
+| `src/shared/` | `ReplicatedStorage.Shared` (Folder) | Config, Types, Remotes, CommandCatalog, RankCatalog |
 | `src/server/` | `ServerScriptService.Server` (Script) | `init.server.lua` is the entry point |
 | `src/client/` | `StarterPlayerScripts.Client` (LocalScript) | `init.client.lua` is the entry point |
 
 A folder containing `init.server.lua` / `init.client.lua` becomes a *Script* in Roblox,
 with its siblings as children. That's why services are required as `script.FormationService`
 from the entry point and `script.Parent.FormationService` from a sibling.
+
+Server services: Formation (the footprints), Recruit (per-session state), Progression
+(XP, rank, DataStore persistence), Overhead (the nametag), Drill (the loop).
 
 ## Conventions
 
@@ -42,14 +45,18 @@ from the entry point and `script.Parent.FormationService` from a sibling.
   hand-placed parts can't be diffed or merged. Once a layout is settled it can move
   into Studio as an asset, but code-first keeps the project reviewable while it's
   changing daily.
-- **Content lives in data, not logic.** `CommandCatalog.lua` is pure data so it can be
-  edited without touching a service.
+- **Content lives in data, not logic.** `CommandCatalog.lua` and `RankCatalog.lua` are
+  pure data so they can be edited without touching a service.
+- **Persistence never overwrites what it could not read.** A DataStore load failure
+  marks the record unsaveable for that session. See `ProgressionService`.
 
 ## Current state
 
-Vertical slice only: Receiving — the yellow footprints. One loop of
+Vertical slice: Receiving — the yellow footprints. One loop of
 `Waiting → FallIn → Drill → Debrief`, with facing movements and call-and-response
-graded on correctness and speed. See `docs/DESIGN.md` for the roadmap beyond this.
+graded on correctness and speed. Each session banks XP into a persistent service
+record; rank is earned from XP (`RankCatalog`) and shown on the overhead tag.
+See `docs/DESIGN.md` for the roadmap beyond this.
 
 ## Tone
 

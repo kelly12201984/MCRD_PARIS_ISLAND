@@ -68,6 +68,24 @@ export type ScoreRow = {
 	demerits: number,
 }
 
+-- One rung of the ladder in RankCatalog.
+export type Rank = {
+	name: string,
+	short: string,
+	-- Pay grade such as "E-3". Empty for Recruit.
+	grade: string,
+	-- Total XP needed to hold this rank.
+	xp: number,
+	-- Decal id, or "" for no insignia.
+	insignia: string,
+}
+
+-- What persists between sessions for one player. Server only.
+export type ServiceRecord = {
+	xp: number,
+	sessions: number,
+}
+
 -- One recruit's server-side state. Server only, but declared here so it is
 -- documented alongside everything else.
 export type RecruitState = {

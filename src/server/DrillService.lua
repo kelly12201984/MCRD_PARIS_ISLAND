@@ -5,7 +5,7 @@
 		Waiting  -> enough recruits on the server?
 		FallIn   -> walk to the yellow footprints and claim a set
 		Drill    -> N commands, each graded on correctness and speed
-		Debrief  -> scoreboard, then round again
+		Debrief  -> XP and promotions, scoreboard, then round again
 
 	Design note worth reading before you extend this: the loop is a plain
 	sequential coroutine, not a state machine sprayed across event handlers.
@@ -25,6 +25,7 @@ local CommandCatalog = require(Shared.CommandCatalog)
 
 local FormationService = require(script.Parent.FormationService)
 local RecruitService = require(script.Parent.RecruitService)
+local ProgressionService = require(script.Parent.ProgressionService)
 
 local DrillService = {}
 
@@ -203,8 +204,28 @@ local function drillPhase()
 	end
 end
 
+--[[
+	Banks the session into each recruit's service record, then shows the
+	scoreboard. Promotions go out in the phase message so nobody misses them.
+]]
 local function debriefPhase()
-	broadcastPhase("Debrief", Config.Drill.DebriefSeconds, "FALL OUT. WE GO AGAIN.")
+	local promotions: { string } = {}
+	for player, state in RecruitService.all() do
+		if player.Parent == nil then
+			continue
+		end
+		local _, rank = ProgressionService.awardSession(player, state.score, state.demerits)
+		if rank then
+			table.insert(promotions, ("%s, YOU ARE NOW %s."):format(string.upper(player.Name), string.upper(rank.name)))
+		end
+	end
+
+	local message = "FALL OUT. WE GO AGAIN."
+	if #promotions > 0 then
+		message = table.concat(promotions, " ") .. " " .. message
+	end
+
+	broadcastPhase("Debrief", Config.Drill.DebriefSeconds, message)
 	Remotes.Scoreboard:FireAllClients(RecruitService.scoreboard())
 	task.wait(Config.Drill.DebriefSeconds)
 end
