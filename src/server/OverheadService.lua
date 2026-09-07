@@ -26,6 +26,8 @@ local OverheadService = {}
 
 local GUI_NAME = "Overhead"
 local HEAD_WAIT_SECONDS = 10
+-- Half the height of a standard R15 head, so ClearanceStuds measures from its top.
+local HEAD_HALF_HEIGHT = 0.6
 
 local function makeLabel(name: string, text: string, color: Color3, heightFraction: number, order: number): TextLabel
 	local cfg = Config.Overhead
@@ -68,7 +70,9 @@ local function build(player: Player, character: Model)
 	gui.Name = GUI_NAME
 	gui.Adornee = head
 	gui.Size = UDim2.new(cfg.WidthStuds, 0, cfg.HeightStuds, 0)
-	gui.StudsOffset = Vector3.new(0, cfg.HeightAboveHead, 0)
+	-- The offset positions the tag's center, so lift it by half its own height
+	-- plus the clearance to keep the bottom edge above the head.
+	gui.StudsOffset = Vector3.new(0, HEAD_HALF_HEIGHT + cfg.ClearanceStuds + cfg.HeightStuds / 2, 0)
 	gui.MaxDistance = cfg.MaxDistance
 	gui.ResetOnSpawn = false
 
