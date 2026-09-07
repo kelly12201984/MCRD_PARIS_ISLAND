@@ -17,9 +17,11 @@ require(ReplicatedStorage:WaitForChild("Shared").Remotes)
 local FormationService = require(script.FormationService)
 local RecruitService = require(script.RecruitService)
 local DrillService = require(script.DrillService)
+local OverheadService = require(script.OverheadService)
 
 FormationService.init()
 RecruitService.init()
+OverheadService.init()
 DrillService.start()
 
 print("[MCRD] Receiving deck is open.")
