@@ -11,8 +11,15 @@
 local Config = {}
 
 Config.Formation = {
-	-- Where the receiving deck sits in the world.
-	Origin = Vector3.new(0, 4, 0),
+	-- Where the receiving deck sits in the world: the pavement in front of the
+	-- Receiving Building. Y is only a starting guess when SnapToGround is on.
+	Origin = Vector3.new(-3008, 6, -277),
+	-- Raycast down from above Origin and put the pads on whatever it hits.
+	SnapToGround = true,
+	GroundProbeHeight = 50,
+	-- Generate a concrete slab under the pads. Useful on an empty baseplate,
+	-- ugly on real pavement.
+	BuildDeck = false,
 
 	-- The famous yellow footprints: 4 rows of 5, heels together, 45 degrees out.
 	Rows = 4,
@@ -28,10 +35,19 @@ Config.Formation = {
 
 	-- How far a recruit may drift off their pad mid-drill before the DI notices.
 	DriftTolerance = 5.5,
+
+	-- The marker that floats over the deck during fall-in so nobody has to
+	-- hunt for the footprints. Sized in pixels so it reads from any distance.
+	BeaconText = "FALL IN HERE",
+	BeaconHeight = 14,
+	BeaconWidthPx = 300,
+	BeaconHeightPx = 70,
+	BeaconMaxDistance = 3000,
 }
 
 Config.Drill = {
-	-- Seconds recruits get to fall in before the first command.
+	-- Seconds recruits get to fall in once the FIRST recruit reaches the deck.
+	-- The clock does not start on an empty deck.
 	FallInSeconds = 25,
 
 	-- How many commands make up one drill session.
@@ -48,7 +64,7 @@ Config.Drill = {
 	-- Seconds of scoreboard/debrief before the next session starts.
 	DebriefSeconds = 12,
 
-	-- Do not start a session with an empty deck.
+	-- Do not start a session with an empty server.
 	MinimumRecruits = 1,
 }
 

@@ -11,6 +11,7 @@
 	be proven.
 ]]
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
@@ -26,6 +27,11 @@ local padOwner: { [number]: Player } = {}
 local playerPad: { [Player]: number } = {}
 
 local deckFolder: Folder?
+local busDrop: SpawnLocation?
+local beacon: BillboardGui?
+
+-- Where the formation is actually centered, after snapping to the ground.
+local origin: Vector3 = Config.Formation.Origin
 
 local function padPosition(index: number): Vector3
 	local cfg = Config.Formation
@@ -36,7 +42,7 @@ local function padPosition(index: number): Vector3
 	local offsetX = (column - (cfg.Columns - 1) / 2) * cfg.SpacingX
 	local offsetZ = (row - (cfg.Rows - 1) / 2) * cfg.SpacingZ
 
-	return cfg.Origin + Vector3.new(offsetX, 0, offsetZ)
+	return origin + Vector3.new(offsetX, 0, offsetZ)
 end
 
 function FormationService.padCount(): number
@@ -57,6 +63,63 @@ function FormationService.facingToYaw(facing: number): number
 	return math.rad(-90 * (facing % 4))
 end
 
+--[[
+	Drops a ray from above the configured origin and rests the formation on
+	whatever ground it finds, so the pads sit flush on real pavement without
+	anyone having to measure the Y coordinate.
+]]
+local function snapOriginToGround()
+	local cfg = Config.Formation
+	if not cfg.SnapToGround then
+		return
+	end
+
+	local from = cfg.Origin + Vector3.new(0, cfg.GroundProbeHeight, 0)
+	local direction = Vector3.new(0, -cfg.GroundProbeHeight * 2, 0)
+	local result = Workspace:Raycast(from, direction)
+	if result then
+		origin = Vector3.new(cfg.Origin.X, result.Position.Y + cfg.PadSize.Y / 2, cfg.Origin.Z)
+	else
+		warn("[Formation] No ground found under Config.Formation.Origin; using it as-is.")
+	end
+end
+
+local function buildBeacon(parent: Folder)
+	local cfg = Config.Formation
+
+	local anchor = Instance.new("Part")
+	anchor.Name = "BeaconAnchor"
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.CanTouch = false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.new(1, 1, 1)
+	anchor.Position = origin + Vector3.new(0, cfg.BeaconHeight, 0)
+	anchor.Parent = parent
+
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "Beacon"
+	gui.Size = UDim2.fromOffset(cfg.BeaconWidthPx, cfg.BeaconHeightPx)
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = cfg.BeaconMaxDistance
+	gui.Enabled = false
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamBold
+	label.TextScaled = true
+	label.TextColor3 = cfg.PadColor
+	label.TextStrokeColor3 = Color3.new(0, 0, 0)
+	label.TextStrokeTransparency = 0.2
+	label.Text = cfg.BeaconText .. "\n\u{25BC}"
+	label.Parent = gui
+
+	gui.Parent = anchor
+	beacon = gui
+end
+
 local function buildDeck()
 	local folder = Instance.new("Folder")
 	folder.Name = "ReceivingDeck"
@@ -65,15 +128,17 @@ local function buildDeck()
 	local width = cfg.Columns * cfg.SpacingX + 20
 	local depth = cfg.Rows * cfg.SpacingZ + 36
 
-	local deck = Instance.new("Part")
-	deck.Name = "Deck"
-	deck.Anchored = true
-	deck.Size = Vector3.new(width, 1, depth)
-	deck.Position = cfg.Origin - Vector3.new(0, 0.6, 0)
-	deck.Material = Enum.Material.Concrete
-	deck.Color = Color3.fromRGB(103, 105, 104)
-	deck.TopSurface = Enum.SurfaceType.Smooth
-	deck.Parent = folder
+	if cfg.BuildDeck then
+		local deck = Instance.new("Part")
+		deck.Name = "Deck"
+		deck.Anchored = true
+		deck.Size = Vector3.new(width, 1, depth)
+		deck.Position = origin - Vector3.new(0, 0.6, 0)
+		deck.Material = Enum.Material.Concrete
+		deck.Color = Color3.fromRGB(103, 105, 104)
+		deck.TopSurface = Enum.SurfaceType.Smooth
+		deck.Parent = folder
+	end
 
 	for index = 1, FormationService.padCount() do
 		local pad = Instance.new("Part")
@@ -96,23 +161,48 @@ local function buildDeck()
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "BusDrop"
 	spawn.Anchored = true
-	spawn.Size = Vector3.new(12, 1, 6)
-	spawn.Position = cfg.Origin + Vector3.new(0, 0, depth / 2 - 6)
+	spawn.CanCollide = false
+	spawn.Size = Vector3.new(12, cfg.PadSize.Y, 6)
+	spawn.Position = origin + Vector3.new(0, 0, depth / 2 - 6)
 	spawn.Material = Enum.Material.Concrete
 	spawn.Color = Color3.fromRGB(60, 62, 61)
 	spawn.Neutral = true
 	spawn.Duration = 0
 	spawn.Parent = folder
+	busDrop = spawn
+
+	buildBeacon(folder)
 
 	folder.Parent = Workspace
 	deckFolder = folder
+end
+
+-- The place still has free-model spawn points scattered around; this makes
+-- sure everyone starts at the bus drop regardless.
+local function pinSpawn(player: Player)
+	if busDrop then
+		player.RespawnLocation = busDrop
+	end
 end
 
 function FormationService.init()
 	if deckFolder then
 		return
 	end
+	snapOriginToGround()
 	buildDeck()
+
+	for _, player in Players:GetPlayers() do
+		pinSpawn(player)
+	end
+	Players.PlayerAdded:Connect(pinSpawn)
+end
+
+-- Shows or hides the "fall in here" marker over the deck.
+function FormationService.setBeacon(visible: boolean)
+	if beacon then
+		beacon.Enabled = visible
+	end
 end
 
 local function setPadHighlight(index: number, claimed: boolean)
