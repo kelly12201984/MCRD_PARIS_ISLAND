@@ -3,10 +3,9 @@
 	Overhead nametag: rank insignia, username, rank, division -- stacked above
 	the head, built in code so it can be diffed and tuned from Config.
 
-	Where the data comes from today:
-	  - Rank + insignia: the Roblox group in Config.Overhead.GroupId. That is where
-	    the current ranks live. Once recruits can earn rank in-game, swap the body
-	    of getRank() and nothing else changes.
+	Where the data comes from:
+	  - Rank + insignia: ProgressionService, so it is earned by training and
+	    persists. The tag rebuilds the moment a player is promoted.
 	  - Division: the player's Team, which Autoteam (and later our own graduation
 	    logic) assigns. The line is tinted with the team color.
 
@@ -19,24 +18,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local RankCatalog = require(Shared.RankCatalog)
+
+local ProgressionService = require(script.Parent.ProgressionService)
 
 local OverheadService = {}
 
 local GUI_NAME = "Overhead"
 local HEAD_WAIT_SECONDS = 10
-
-local function getRank(player: Player): (string, number)
-	local cfg = Config.Overhead
-	local okRank, rankId = pcall(player.GetRankInGroup, player, cfg.GroupId)
-	local okRole, roleName = pcall(player.GetRoleInGroup, player, cfg.GroupId)
-
-	local rank: number = if okRank and typeof(rankId) == "number" then rankId else 0
-	local name: string = cfg.NoGroupRank
-	if rank > 0 and okRole and typeof(roleName) == "string" then
-		name = roleName
-	end
-	return name, rank
-end
 
 local function getDivision(player: Player): (string, Color3)
 	local team = player.Team
@@ -80,7 +69,7 @@ local function build(player: Player, character: Model)
 	end
 
 	local cfg = Config.Overhead
-	local rankName, rankId = getRank(player)
+	local rank = ProgressionService.getRank(player)
 	local divisionName, divisionColor = getDivision(player)
 
 	local gui = Instance.new("BillboardGui")
@@ -99,37 +88,38 @@ local function build(player: Player, character: Model)
 	layout.Padding = UDim.new(0, cfg.LinePadding)
 	layout.Parent = gui
 
-	local insigniaImage = cfg.Insignia[rankId]
 	local insignia = Instance.new("ImageLabel")
 	insignia.Name = "Insignia"
 	insignia.BackgroundTransparency = 1
 	insignia.Size = UDim2.fromOffset(cfg.InsigniaSize, cfg.InsigniaSize)
-	insignia.Image = insigniaImage or ""
-	insignia.Visible = insigniaImage ~= nil
+	insignia.Image = rank.insignia
+	insignia.Visible = rank.insignia ~= ""
 	insignia.LayoutOrder = 1
 	insignia.Parent = gui
 
 	makeLabel("Username", player.Name, cfg.NameColor, cfg.NameTextSize, 2).Parent = gui
-	makeLabel("Rank", rankName, cfg.TextColor, cfg.TextSize, 3).Parent = gui
+	makeLabel("Rank", RankCatalog.displayName(rank), cfg.TextColor, cfg.TextSize, 3).Parent = gui
 	makeLabel("Division", divisionName, divisionColor, cfg.TextSize, 4).Parent = gui
 
 	gui.Parent = character
 end
 
-local function watch(player: Player)
-	local function rebuild()
-		local character = player.Character
-		if character then
-			build(player, character)
-		end
+local function refresh(player: Player)
+	local character = player.Character
+	if character then
+		build(player, character)
 	end
+end
 
+local function watch(player: Player)
 	player.CharacterAdded:Connect(function(character)
 		build(player, character)
 	end)
-	-- Division changes (promotion, reassignment) refresh the tag in place.
-	player:GetPropertyChangedSignal("Team"):Connect(rebuild)
-	rebuild()
+	-- Division changes (reassignment) refresh the tag in place.
+	player:GetPropertyChangedSignal("Team"):Connect(function()
+		refresh(player)
+	end)
+	refresh(player)
 end
 
 function OverheadService.init()
@@ -137,6 +127,11 @@ function OverheadService.init()
 		watch(player)
 	end
 	Players.PlayerAdded:Connect(watch)
+
+	-- Promotions (and the initial load of a saved rank) refresh the tag too.
+	ProgressionService.RankChanged:Connect(function(player: Player)
+		refresh(player)
+	end)
 end
 
 return OverheadService

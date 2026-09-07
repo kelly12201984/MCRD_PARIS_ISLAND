@@ -73,13 +73,23 @@ Config.Scoring = {
 	IncentiveTrainingSeconds = 6,
 }
 
+Config.Progression = {
+	-- XP per point of session score. A clean 12-command session scores roughly
+	-- 1,200-1,500, so this is about 300-375 XP; negative scores earn nothing.
+	ScoreToXp = 0.25,
+	-- Flat XP for finishing a session with fewer than CompletionDemeritCap demerits.
+	CompletionXp = 20,
+	CompletionDemeritCap = 3,
+
+	-- DataStore name. Change the suffix to wipe everyone's record on purpose.
+	DataStoreName = "ServiceRecords_v1",
+	-- Seconds between background saves of records that changed.
+	AutosaveSeconds = 120,
+}
+
 Config.Overhead = {
-	-- Roblox group whose ranks show over players' heads. This is where ranks
-	-- live today; in-game progression will replace it once recruits can earn
-	-- rank by training. Players outside the group show NoGroupRank.
-	GroupId = 9436889,
-	NoGroupRank = "Civilian",
-	-- Shown when a player has no Team yet.
+	-- Rank and insignia come from ProgressionService (see RankCatalog for the
+	-- ladder). Division is the player's Team; this shows when there is none.
 	NoDivision = "Unassigned",
 
 	-- Layout. Sizes are in pixels; HeightAboveHead is in studs.
@@ -97,36 +107,6 @@ Config.Overhead = {
 	TextColor = Color3.fromRGB(240, 240, 240),
 	StrokeColor = Color3.fromRGB(0, 0, 0),
 	StrokeTransparency = 0.4,
-
-	-- Group rank id -> insignia decal. Reused from the previous overhead system;
-	-- ranks with no entry show no insignia.
-	Insignia = {
-		[3] = "rbxassetid://8891244053", -- E2
-		[4] = "rbxassetid://8891244211", -- E3
-		[5] = "rbxassetid://8891244331", -- E4
-		[6] = "rbxassetid://8891244441", -- E5
-		[7] = "rbxassetid://8891244559", -- E6
-		[8] = "rbxassetid://9431131770", -- E7
-		[9] = "rbxassetid://8891244755", -- E8A
-		[10] = "rbxassetid://8891244887", -- E8B
-		[11] = "rbxassetid://8891245013", -- E9A
-		[12] = "rbxassetid://8891245103", -- E9B
-		[14] = "rbxassetid://8891246033", -- O1
-		[15] = "rbxassetid://8891246191", -- O2
-		[16] = "rbxassetid://8891246376", -- O3
-		[17] = "rbxassetid://8891246608", -- O4
-		[18] = "rbxassetid://8891247576", -- O5
-		[19] = "rbxassetid://8891246805", -- O6
-		[20] = "rbxassetid://8891246920", -- O7
-		[21] = "rbxassetid://8891247017", -- O8
-		[22] = "rbxassetid://8891247134", -- O9
-		[24] = "rbxassetid://8891247017", -- IG O8
-		[25] = "rbxassetid://8891247134", -- DMCS O9
-		[26] = "rbxassetid://8891245222", -- SMMC E9C
-		[27] = "rbxassetid://8891248325", -- ACMC O10
-		[29] = "rbxassetid://13328264459", -- CMC O10
-		[255] = "rbxassetid://13328277177", -- SECDEF
-	},
 }
 
 Config.Debug = {
