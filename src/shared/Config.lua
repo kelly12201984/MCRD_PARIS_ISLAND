@@ -11,41 +11,55 @@
 local Config = {}
 
 Config.Formation = {
-	-- Easiest way to place the deck: put a Part named this anywhere in the
-	-- Workspace, move and rotate it in Studio, done. The formation centers on
-	-- it and recruits face the way its front face points.
+	-- The real map: tag each painted formation box in Studio (Properties ->
+	-- Tags) with SpotTag and the code uses those. Tag the thing the DI stands
+	-- on/at with FrontTag and recruits face it.
+	SpotTag = "FormationSpot",
+	FrontTag = "FormationFront",
+	-- Spots this close (in studs) to the front count as the same rank, for
+	-- numbering them front-to-back, left-to-right.
+	RowBucketStuds = 4,
+
+	-- Fallback when nothing is tagged: generate a yellow grid so the game still
+	-- runs on an empty baseplate. Placed at a Part named MarkerName, else Origin.
+	GenerateIfNoSpots = true,
 	MarkerName = "FormationOrigin",
-	-- Used only when no marker part exists.
 	Origin = Vector3.new(-3008, 6, -277),
-	-- Raycast down from above the origin and put the pads on whatever it hits.
 	SnapToGround = true,
 	GroundProbeHeight = 50,
-	-- Generate a concrete slab under the pads. Useful on an empty baseplate,
-	-- ugly on real pavement.
 	BuildDeck = false,
-
-	-- The famous yellow footprints: 4 rows of 5, heels together, 45 degrees out.
 	Rows = 4,
 	Columns = 5,
 	SpacingX = 6,
 	SpacingZ = 8,
-
 	PadSize = Vector3.new(3, 0.2, 3),
 	PadColor = Color3.fromRGB(255, 204, 0),
 
-	-- How close a recruit must be to a pad to claim it.
+	-- How the claimed spot is shown (a Highlight, so nothing is recolored).
+	ClaimFillTransparency = 0.6,
+
+	-- How close (horizontally) a recruit must be to a spot to claim it.
 	ClaimRadius = 4,
-
-	-- How far a recruit may drift off their pad mid-drill before the DI notices.
+	-- How far a recruit may drift off their spot mid-drill before the DI notices.
 	DriftTolerance = 5.5,
+	-- Studs above the spot's surface to place the character root when snapping.
+	StandHeight = 3,
 
-	-- The marker that floats over the deck during fall-in so nobody has to
-	-- hunt for the footprints. Sized in pixels so it reads from any distance.
+	-- The marker that floats over the formation during fall-in so nobody has
+	-- to hunt for it. Sized in pixels so it reads from any distance.
 	BeaconText = "FALL IN HERE",
 	BeaconHeight = 14,
 	BeaconWidthPx = 300,
 	BeaconHeightPx = 70,
 	BeaconMaxDistance = 3000,
+}
+
+Config.Spawn = {
+	-- Tag the bus stop and a spot in town (Properties -> Tags). Recruits --
+	-- players who hold a division -- spawn at the bus stop; everyone else
+	-- spawns in town.
+	BusStopTag = "BusStop",
+	TownSpawnTag = "TownSpawn",
 }
 
 Config.Drill = {

@@ -1,21 +1,21 @@
 --!strict
 --[[
-	Builds the receiving deck and tracks who is standing on which set of
-	footprints.
+	Tracks who is standing on which formation spot, and where the spots are.
 
-	Everything here is generated from Config at runtime rather than modeled in
-	Studio. That is a deliberate early-project choice: it means the game is fully
-	playable from a clean `rojo build`, with no .rbxl full of hand-placed parts
-	that git cannot merge. When you and your son start doing real art passes,
-	you will swap this for real models -- but by then the gameplay will already
-	be proven.
+	Two sources for the spots, in priority order:
+	  1. Anything in the Workspace tagged Config.Formation.SpotTag. This is the
+	     real map: the painted formation boxes on the parade deck. Tag them in
+	     Studio (Properties -> Tags) and the code finds them, parts or models.
+	  2. If nothing is tagged, a grid of yellow pads is generated at the
+	     FormationOrigin marker (or Config.Formation.Origin) so the game still
+	     runs on an empty baseplate.
 
-	Placement: drop a Part named Config.Formation.MarkerName in the Workspace
-	and the whole deck centers on it and faces the way its front faces. No
-	marker, and it falls back to Config.Formation.Origin facing -Z.
+	Facing: at facing 0 a recruit looks toward the instance tagged
+	Config.Formation.FrontTag -- where the DI stands. Without one, each spot's
+	own front face is "north".
 ]]
 
-local Players = game:GetService("Players")
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
@@ -24,65 +24,130 @@ local Config = require(Shared.Config)
 
 local FormationService = {}
 
-local padParts: { BasePart } = {}
--- padIndex -> Player currently holding it
+type Spot = {
+	-- Where a recruit stands (top surface) and which way facing 0 looks.
+	cframe: CFrame,
+	instance: Instance,
+	highlight: Highlight?,
+}
+
+local spots: { Spot } = {}
+-- spotIndex -> Player currently holding it
 local padOwner: { [number]: Player } = {}
--- Player -> padIndex
+-- Player -> spotIndex
 local playerPad: { [Player]: number } = {}
 
 local deckFolder: Folder?
-local busDrop: SpawnLocation?
+local generatedSpawn: SpawnLocation?
 local beacon: BillboardGui?
 
--- Where the formation is centered and which way "north" (facing 0) points.
--- Position and yaw only; never pitched or rolled.
+-- Only used by the generated fallback grid.
 local originCFrame: CFrame = CFrame.new(Config.Formation.Origin)
 
--- Strips pitch and roll so a carelessly tilted marker cannot tilt the deck.
+-- Strips pitch and roll so a tilted part cannot tilt the formation.
 local function yawOnly(cf: CFrame): CFrame
 	local look = cf.LookVector
 	local yaw = math.atan2(-look.X, -look.Z)
 	return CFrame.new(cf.Position) * CFrame.Angles(0, yaw, 0)
 end
 
-local function padCFrame(index: number): CFrame
+-- CFrame and size of a part or model; nil for anything else.
+local function pivotOf(inst: Instance): (CFrame?, Vector3?)
+	if inst:IsA("BasePart") then
+		return inst.CFrame, inst.Size
+	elseif inst:IsA("Model") then
+		return inst:GetBoundingBox()
+	end
+	return nil, nil
+end
+
+local function flatDistance(a: Vector3, b: Vector3): number
+	return (Vector3.new(a.X, 0, a.Z) - Vector3.new(b.X, 0, b.Z)).Magnitude
+end
+
+-- Rotates a standing CFrame to look at a target on the horizontal plane.
+local function faceToward(from: CFrame, target: Vector3?): CFrame
+	if not target then
+		return from
+	end
+	local flat = Vector3.new(target.X, from.Position.Y, target.Z)
+	if (flat - from.Position).Magnitude < 0.01 then
+		return from
+	end
+	return CFrame.lookAt(from.Position, flat)
+end
+
+local function addHighlight(spot: Spot, parent: Instance)
 	local cfg = Config.Formation
-	local row = math.floor((index - 1) / cfg.Columns)
-	local column = (index - 1) % cfg.Columns
-
-	-- Center the grid on the origin.
-	local offsetX = (column - (cfg.Columns - 1) / 2) * cfg.SpacingX
-	local offsetZ = (row - (cfg.Rows - 1) / 2) * cfg.SpacingZ
-
-	return originCFrame * CFrame.new(offsetX, 0, offsetZ)
-end
-
-local function padPosition(index: number): Vector3
-	return padCFrame(index).Position
-end
-
-function FormationService.padCount(): number
-	return Config.Formation.Rows * Config.Formation.Columns
-end
-
-function FormationService.getPadPosition(index: number): Vector3
-	return padPosition(index)
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "ClaimHighlight"
+	highlight.Adornee = spot.instance
+	highlight.FillColor = cfg.PadColor
+	highlight.OutlineColor = cfg.PadColor
+	highlight.FillTransparency = cfg.ClaimFillTransparency
+	highlight.OutlineTransparency = 0
+	highlight.Enabled = false
+	highlight.Parent = parent
+	spot.highlight = highlight
 end
 
 --[[
-	Converts a facing index (0 = north, 1 = east, 2 = south, 3 = west) into a
-	yaw in radians relative to the formation's own north. Roblox's identity
-	LookVector is -Z, and a rotation of theta about Y gives LookVector
-	(-sin theta, 0, -cos theta), so clockwise quarter-turns are negative.
+	Builds the spot list from tagged instances. Returns false if there are none.
+	Spots are numbered front rank first (closest to the DI), then left to right,
+	so the order is stable between runs.
 ]]
-function FormationService.facingToYaw(facing: number): number
-	return math.rad(-90 * (facing % 4))
+local function collectTaggedSpots(folder: Folder): boolean
+	local cfg = Config.Formation
+
+	local frontPos: Vector3? = nil
+	local front = CollectionService:GetTagged(cfg.FrontTag)[1]
+	if front then
+		local cf = pivotOf(front)
+		if cf then
+			frontPos = cf.Position
+		end
+	end
+
+	local found: { Spot } = {}
+	for _, inst in CollectionService:GetTagged(cfg.SpotTag) do
+		if inst:IsDescendantOf(Workspace) then
+			local cf, size = pivotOf(inst)
+			if cf and size then
+				local top = CFrame.new(cf.Position + Vector3.new(0, size.Y / 2, 0)) * yawOnly(cf).Rotation
+				table.insert(found, { cframe = faceToward(top, frontPos), instance = inst })
+			end
+		end
+	end
+	if #found == 0 then
+		return false
+	end
+
+	local function rowKey(p: Vector3): number
+		local along = if frontPos then flatDistance(p, frontPos) else p.Z
+		return math.round(along / cfg.RowBucketStuds)
+	end
+	table.sort(found, function(a, b)
+		local pa, pb = a.cframe.Position, b.cframe.Position
+		local ra, rb = rowKey(pa), rowKey(pb)
+		if ra ~= rb then
+			return ra < rb
+		end
+		if pa.X ~= pb.X then
+			return pa.X < pb.X
+		end
+		return pa.Z < pb.Z
+	end)
+
+	for _, spot in found do
+		addHighlight(spot, folder)
+	end
+	spots = found
+	return true
 end
 
 --[[
-	Finds the marker part if there is one, then drops a ray from above it and
-	rests the formation on whatever ground it finds, so the pads sit flush on
-	real pavement without anyone measuring a Y coordinate.
+	Fallback placement: the FormationOrigin marker part if there is one, else
+	Config.Formation.Origin, snapped down onto the ground.
 ]]
 local function locateOrigin()
 	local cfg = Config.Formation
@@ -92,37 +157,97 @@ local function locateOrigin()
 	local marker = Workspace:FindFirstChild(cfg.MarkerName, true)
 	if marker and marker:IsA("BasePart") then
 		base = yawOnly(marker.CFrame)
-		-- The marker is a Studio-only handle; players never see or touch it.
 		marker.Transparency = 1
 		marker.CanCollide = false
 		marker.CanQuery = false
 		marker.CanTouch = false
 		table.insert(exclude, marker)
-	else
-		warn(("[Formation] No part named %q found; using Config.Formation.Origin."):format(cfg.MarkerName))
 	end
 
 	if cfg.SnapToGround then
 		local params = RaycastParams.new()
 		params.FilterType = Enum.RaycastFilterType.Exclude
 		params.FilterDescendantsInstances = exclude
-
 		local from = base.Position + Vector3.new(0, cfg.GroundProbeHeight, 0)
-		local direction = Vector3.new(0, -cfg.GroundProbeHeight * 2, 0)
-		local result = Workspace:Raycast(from, direction, params)
+		local result = Workspace:Raycast(from, Vector3.new(0, -cfg.GroundProbeHeight * 2, 0), params)
 		if result then
 			local grounded = Vector3.new(base.Position.X, result.Position.Y + cfg.PadSize.Y / 2, base.Position.Z)
 			base = CFrame.new(grounded) * base.Rotation
-		else
-			warn("[Formation] No ground found under the formation origin; using it as-is.")
 		end
 	end
 
 	originCFrame = base
 end
 
+local function generateSpots(folder: Folder)
+	local cfg = Config.Formation
+	local width = cfg.Columns * cfg.SpacingX + 20
+	local depth = cfg.Rows * cfg.SpacingZ + 36
+
+	if cfg.BuildDeck then
+		local deck = Instance.new("Part")
+		deck.Name = "Deck"
+		deck.Anchored = true
+		deck.Size = Vector3.new(width, 1, depth)
+		deck.CFrame = originCFrame * CFrame.new(0, -0.6, 0)
+		deck.Material = Enum.Material.Concrete
+		deck.Color = Color3.fromRGB(103, 105, 104)
+		deck.TopSurface = Enum.SurfaceType.Smooth
+		deck.Parent = folder
+	end
+
+	local found: { Spot } = {}
+	for index = 1, cfg.Rows * cfg.Columns do
+		local row = math.floor((index - 1) / cfg.Columns)
+		local column = (index - 1) % cfg.Columns
+		local offsetX = (column - (cfg.Columns - 1) / 2) * cfg.SpacingX
+		local offsetZ = (row - (cfg.Rows - 1) / 2) * cfg.SpacingZ
+		local padCFrame = originCFrame * CFrame.new(offsetX, 0, offsetZ)
+
+		local pad = Instance.new("Part")
+		pad.Name = string.format("Footprints_%02d", index)
+		pad.Anchored = true
+		pad.CanCollide = false
+		pad.Size = cfg.PadSize
+		pad.CFrame = padCFrame
+		pad.Material = Enum.Material.SmoothPlastic
+		pad.Color = cfg.PadColor
+		pad.TopSurface = Enum.SurfaceType.Smooth
+		pad:SetAttribute("PadIndex", index)
+		pad.Parent = folder
+
+		local spot: Spot = { cframe = padCFrame * CFrame.new(0, cfg.PadSize.Y / 2, 0), instance = pad }
+		addHighlight(spot, folder)
+		table.insert(found, spot)
+	end
+	spots = found
+
+	-- Recruits arrive at the back of the deck and walk up to the pads.
+	local spawn = Instance.new("SpawnLocation")
+	spawn.Name = "BusDrop"
+	spawn.Anchored = true
+	spawn.CanCollide = false
+	spawn.Size = Vector3.new(12, cfg.PadSize.Y, 6)
+	spawn.CFrame = originCFrame * CFrame.new(0, 0, depth / 2 - 6)
+	spawn.Material = Enum.Material.Concrete
+	spawn.Color = Color3.fromRGB(60, 62, 61)
+	spawn.Neutral = true
+	spawn.Duration = 0
+	spawn.Parent = folder
+	generatedSpawn = spawn
+end
+
 local function buildBeacon(parent: Folder)
 	local cfg = Config.Formation
+	if #spots == 0 then
+		return
+	end
+
+	local sum = Vector3.zero
+	for _, spot in spots do
+		sum += spot.cframe.Position
+	end
+	local center = sum / #spots
 
 	local anchor = Instance.new("Part")
 	anchor.Name = "BeaconAnchor"
@@ -132,7 +257,7 @@ local function buildBeacon(parent: Folder)
 	anchor.CanTouch = false
 	anchor.Transparency = 1
 	anchor.Size = Vector3.new(1, 1, 1)
-	anchor.Position = originCFrame.Position + Vector3.new(0, cfg.BeaconHeight, 0)
+	anchor.Position = center + Vector3.new(0, cfg.BeaconHeight, 0)
 	anchor.Parent = parent
 
 	local gui = Instance.new("BillboardGui")
@@ -157,102 +282,70 @@ local function buildBeacon(parent: Folder)
 	beacon = gui
 end
 
-local function buildDeck()
-	local folder = Instance.new("Folder")
-	folder.Name = "ReceivingDeck"
-
-	local cfg = Config.Formation
-	local width = cfg.Columns * cfg.SpacingX + 20
-	local depth = cfg.Rows * cfg.SpacingZ + 36
-
-	if cfg.BuildDeck then
-		local deck = Instance.new("Part")
-		deck.Name = "Deck"
-		deck.Anchored = true
-		deck.Size = Vector3.new(width, 1, depth)
-		deck.CFrame = originCFrame * CFrame.new(0, -0.6, 0)
-		deck.Material = Enum.Material.Concrete
-		deck.Color = Color3.fromRGB(103, 105, 104)
-		deck.TopSurface = Enum.SurfaceType.Smooth
-		deck.Parent = folder
-	end
-
-	for index = 1, FormationService.padCount() do
-		local pad = Instance.new("Part")
-		pad.Name = string.format("Footprints_%02d", index)
-		pad.Anchored = true
-		pad.CanCollide = false
-		pad.Size = cfg.PadSize
-		pad.CFrame = padCFrame(index)
-		pad.Material = Enum.Material.SmoothPlastic
-		pad.Color = cfg.PadColor
-		pad.TopSurface = Enum.SurfaceType.Smooth
-		pad:SetAttribute("PadIndex", index)
-		pad.Parent = folder
-
-		padParts[index] = pad
-	end
-
-	-- Recruits arrive at the back of the deck and have to walk up to the pads,
-	-- rather than being teleported into formation. Falling in is the first test.
-	local spawn = Instance.new("SpawnLocation")
-	spawn.Name = "BusDrop"
-	spawn.Anchored = true
-	spawn.CanCollide = false
-	spawn.Size = Vector3.new(12, cfg.PadSize.Y, 6)
-	spawn.CFrame = originCFrame * CFrame.new(0, 0, depth / 2 - 6)
-	spawn.Material = Enum.Material.Concrete
-	spawn.Color = Color3.fromRGB(60, 62, 61)
-	spawn.Neutral = true
-	spawn.Duration = 0
-	spawn.Parent = folder
-	busDrop = spawn
-
-	buildBeacon(folder)
-
-	folder.Parent = Workspace
-	deckFolder = folder
-end
-
--- The place still has free-model spawn points scattered around; this makes
--- sure everyone starts at the bus drop regardless.
-local function pinSpawn(player: Player)
-	if busDrop then
-		player.RespawnLocation = busDrop
-	end
-end
-
 function FormationService.init()
 	if deckFolder then
 		return
 	end
-	locateOrigin()
-	buildDeck()
+	local cfg = Config.Formation
 
-	for _, player in Players:GetPlayers() do
-		pinSpawn(player)
+	local folder = Instance.new("Folder")
+	folder.Name = "ReceivingDeck"
+	deckFolder = folder
+
+	if not collectTaggedSpots(folder) then
+		if cfg.GenerateIfNoSpots then
+			warn(("[Formation] Nothing tagged %q; generating a practice grid instead."):format(cfg.SpotTag))
+			locateOrigin()
+			generateSpots(folder)
+		else
+			warn(("[Formation] Nothing tagged %q and generation is off; there is no formation."):format(cfg.SpotTag))
+		end
 	end
-	Players.PlayerAdded:Connect(pinSpawn)
+
+	buildBeacon(folder)
+	folder.Parent = Workspace
 end
 
--- Shows or hides the "fall in here" marker over the deck.
+-- The generated grid's bus drop, for SpawnService to fall back on.
+function FormationService.fallbackSpawn(): SpawnLocation?
+	return generatedSpawn
+end
+
+-- Shows or hides the "fall in here" marker over the formation.
 function FormationService.setBeacon(visible: boolean)
 	if beacon then
 		beacon.Enabled = visible
 	end
 end
 
-local function setPadHighlight(index: number, claimed: boolean)
-	local pad = padParts[index]
-	if not pad then
-		return
-	end
-	pad.Color = claimed and Color3.fromRGB(198, 158, 0) or Config.Formation.PadColor
+function FormationService.padCount(): number
+	return #spots
+end
+
+function FormationService.getPadPosition(index: number): Vector3
+	local spot = spots[index]
+	return if spot then spot.cframe.Position else Config.Formation.Origin
 end
 
 --[[
-	Claims the nearest free pad if the player is standing close enough to one.
-	Returns the pad index, or nil if there was nothing in reach.
+	Converts a facing index (0 = toward the front, 1 = right, 2 = about,
+	3 = left) into a yaw in radians relative to the spot. A rotation of theta
+	about Y turns the LookVector clockwise for negative theta.
+]]
+function FormationService.facingToYaw(facing: number): number
+	return math.rad(-90 * (facing % 4))
+end
+
+local function setPadHighlight(index: number, claimed: boolean)
+	local spot = spots[index]
+	if spot and spot.highlight then
+		spot.highlight.Enabled = claimed
+	end
+end
+
+--[[
+	Claims the nearest free spot if the player is standing close enough to one.
+	Returns the spot index, or nil if there was nothing in reach.
 ]]
 function FormationService.tryClaimPad(player: Player): number?
 	local character = player.Character
@@ -269,9 +362,9 @@ function FormationService.tryClaimPad(player: Player): number?
 	local bestIndex: number? = nil
 	local bestDistance = Config.Formation.ClaimRadius
 
-	for index = 1, FormationService.padCount() do
+	for index, spot in spots do
 		if padOwner[index] == nil then
-			local distance = (padPosition(index) - root.Position).Magnitude
+			local distance = flatDistance(spot.cframe.Position, root.Position)
 			if distance <= bestDistance then
 				bestDistance = distance
 				bestIndex = index
@@ -303,12 +396,13 @@ function FormationService.getPad(player: Player): number?
 end
 
 --[[
-	True if the recruit is still standing on the pad they claimed. Used mid-drill
-	to catch anyone who wandered off.
+	True if the recruit is still standing on the spot they claimed. Used
+	mid-drill to catch anyone who wandered off.
 ]]
 function FormationService.isHoldingPad(player: Player): boolean
 	local index = playerPad[player]
-	if not index then
+	local spot = index and spots[index]
+	if not spot then
 		return false
 	end
 
@@ -318,20 +412,18 @@ function FormationService.isHoldingPad(player: Player): boolean
 		return false
 	end
 
-	local offset = padPosition(index) - root.Position
-	-- Compare on the horizontal plane only; jumping is not desertion.
-	local flat = Vector3.new(offset.X, 0, offset.Z)
-	return flat.Magnitude <= Config.Formation.DriftTolerance
+	-- Horizontal plane only; jumping is not desertion.
+	return flatDistance(spot.cframe.Position, root.Position) <= Config.Formation.DriftTolerance
 end
 
 --[[
-	Snaps a recruit to face a given cardinal direction on their pad, relative
-	to the formation's own north. This is the visible result of a correctly
-	executed facing movement.
+	Snaps a recruit to face a given direction on their spot. This is the
+	visible result of a correctly executed facing movement.
 ]]
 function FormationService.orientOnPad(player: Player, facing: number)
 	local index = playerPad[player]
-	if not index then
+	local spot = index and spots[index]
+	if not spot then
 		return
 	end
 
@@ -340,9 +432,8 @@ function FormationService.orientOnPad(player: Player, facing: number)
 		return
 	end
 
-	local position = padPosition(index) + Vector3.new(0, 3, 0)
 	local yaw = FormationService.facingToYaw(facing)
-	character:PivotTo(CFrame.new(position) * originCFrame.Rotation * CFrame.Angles(0, yaw, 0))
+	character:PivotTo(spot.cframe * CFrame.new(0, Config.Formation.StandHeight, 0) * CFrame.Angles(0, yaw, 0))
 end
 
 function FormationService.occupiedCount(): number
