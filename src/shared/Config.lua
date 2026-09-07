@@ -37,12 +37,13 @@ Config.Drill = {
 	-- How many commands make up one drill session.
 	CommandsPerSession = 12,
 
-	-- Seconds to execute a command before it counts as a no-response.
-	ResponseWindow = 3.0,
+	-- Seconds to execute a command before it counts as a no-response. Needs to
+	-- cover reading the call AND the options; 3 was not enough for anyone.
+	ResponseWindow = 6.0,
 
 	-- Dead air between commands, so it does not feel like a rhythm game.
-	MinPauseBetweenCommands = 1.2,
-	MaxPauseBetweenCommands = 2.8,
+	MinPauseBetweenCommands = 2.0,
+	MaxPauseBetweenCommands = 3.5,
 
 	-- Seconds of scoreboard/debrief before the next session starts.
 	DebriefSeconds = 12,
@@ -91,10 +92,10 @@ Config.Overhead = {
 	-- The tag is sized in studs so it scales with the world like the avatar
 	-- does. (Pixel sizing stays the same size on screen and looks enormous
 	-- from a distance.)
-	WidthStuds = 7,
-	HeightStuds = 2.8,
-	-- Where the center of the tag sits above the head, in studs.
-	HeightAboveHead = 2.4,
+	WidthStuds = 4.5,
+	HeightStuds = 1.8,
+	-- Gap between the top of the head and the bottom edge of the tag, in studs.
+	ClearanceStuds = 0.9,
 	-- Studs beyond which the tag is not drawn at all.
 	MaxDistance = 120,
 
