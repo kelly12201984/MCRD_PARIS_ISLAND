@@ -1,22 +1,19 @@
 {
-  "name": "MCRD_PARIS_ISLAND",
+  "name": "LEGACY_parris_island_v1",
   "tree": {
     "$className": "DataModel",
-
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
       "Shared": {
         "$path": "src/shared"
       }
     },
-
     "ServerScriptService": {
       "$className": "ServerScriptService",
       "Server": {
         "$path": "src/server"
       }
     },
-
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "StarterPlayerScripts": {
@@ -26,25 +23,30 @@
         }
       }
     },
-
     "Workspace": {
       "$className": "Workspace",
       "$properties": {
         "FilteringEnabled": true
       }
     },
-
     "Lighting": {
       "$className": "Lighting",
       "$properties": {
-        "Ambient": [0.29, 0.29, 0.33],
+        "Ambient": [
+          0.29,
+          0.29,
+          0.33
+        ],
         "Brightness": 2.5,
         "ClockTime": 14,
         "GeographicLatitude": 32.3,
-        "OutdoorAmbient": [0.42, 0.42, 0.47]
+        "OutdoorAmbient": [
+          0.42,
+          0.42,
+          0.47
+        ]
       }
     },
-
     "SoundService": {
       "$className": "SoundService",
       "$properties": {

@@ -3,6 +3,11 @@
 One-time setup on the computer that runs Roblox Studio (Windows or Mac).
 Takes ~20–30 minutes.
 
+> **Right now there is no project file at the repo root.** The first game was
+> archived to `legacy/parris-island-v1/` and the new game's code hasn't been imported
+> yet. Step 1 works today; step 2 works once the new game has its project file.
+> Until then, **don't connect Rojo to the new game** — there's nothing to sync yet.
+
 ## 1. Install the tools
 
 1. Install **Roblox Studio**: https://create.roblox.com → "Start Creating"
@@ -18,25 +23,17 @@ Takes ~20–30 minutes.
 
 ## 2. Connect it
 
-1. In VS Code: click **Rojo** in the bottom status bar → select `default.project.json` → server starts.
+1. In VS Code: click **Rojo** in the bottom status bar → select the game's project file
+   (`default.project.json` at the repo root) → server starts. Never pick anything under
+   `legacy/` here — that would push the old game's scripts into the new one.
 2. In Roblox Studio: open your place (or create a new Baseplate) →
    **Plugins tab → Rojo → Connect**.
-3. You should see the scripts from this repo appear:
-   - `ServerScriptService.Server.Welcome`
-   - `ReplicatedStorage.Shared.GameConfig`
-   - `StarterPlayer.StarterPlayerScripts.Client.Hello`
+3. You should see the scripts from this repo appear in Studio's Explorer.
 
 ## 3. Test it
 
-Hit **Play** in Studio and open the Output window (View tab → Output).
-You should see:
-
-```
-Recruit <name> has arrived at Parris Island!
-MCRD Parris Island client loaded. Welcome, recruit.
-```
-
-If you see both lines, the pipeline works end to end.
+Hit **Play** in Studio and open the Output window (View tab → Output). Errors show
+in red; a clean start means the pipeline works end to end.
 
 ## The rules that keep Claude in the loop
 
