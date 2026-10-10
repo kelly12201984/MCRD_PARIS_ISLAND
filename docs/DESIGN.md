@@ -32,7 +32,9 @@ Close order drill is the perfect first mechanic, and not by accident:
 
 - **It's a real skill with a real fail state.** You can be objectively out of step.
 - **Errors compound.** Face the wrong way and every subsequent command is harder. That
-  produces the panic loop that boot camp actually feels like, for free.
+  produces the panic loop that boot camp actually feels like. It only works if grading
+  checks where the recruit *should* be facing overall, not just whether they turned the
+  right way this time; v1 got this wrong (see `legacy/parris-island-v1/README.md`).
 - **It's multiplayer-native.** A formation where one recruit is visibly wrong is
   instantly readable and instantly funny/tense to everyone else.
 - **It needs no art.** Two colors and a timer and it works.
@@ -44,9 +46,10 @@ So prove it first.
 
 Ordered by *what teaches you the most per hour*, not by chronology in the real depot.
 
-### Phase 0 — Receiving *(done: vertical slice)*
+### Phase 0 — Receiving *(built in v1, now archived)*
 Yellow footprints, fall in, facing movements, call-and-response, demerits, incentive
-training, scoreboard.
+training, scoreboard. v1's compounding facing and incentive training didn't work as
+designed; `legacy/parris-island-v1/README.md` lists the bugs to avoid next time.
 
 ### Phase 1 — Make drill deep
 - Marching, not just facing: `FORWARD MARCH`, `COLUMN RIGHT`, `TO THE REAR`, `HALT`.
